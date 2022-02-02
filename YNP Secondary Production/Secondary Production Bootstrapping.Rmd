@@ -1,0 +1,136 @@
+---
+title: "YNP Benthic Invertebrate Secondary Production"
+author: "Jeremy Brooks"
+date: "1/30/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#Loading in packages
+#install.packages("writexl")
+library(asbio)
+library(vegan)
+library(dplyr)
+library(ggplot2)
+library(boot)
+library(writexl)
+```
+
+
+```{r}
+#Loading Data and setting data frame
+Benthic_Invert_Biomass_Production<- read.csv("C:/Users/broojer2/Desktop/R Analyses/YNP Secondary Production/YNP_Benthic Invertebrate_Production_R.csv")
+Bootstrapping_df <- as.data.frame(Benthic_Invert_Biomass_Production, row.names=NULL)
+
+Output_Graph <- read.csv("C:/Users/broojer2/Desktop/R Analyses/YNP Secondary Production/Output_Graphing.csv")
+Graph_df <- as.data.frame(Output_Graph, row.names = NULL)
+
+```
+
+
+```{r}
+#Checking data format and column names
+str(Bootstrapping_df)
+colnames(Bootstrapping_df)
+
+```
+####Practice
+```{r}
+#baetidae <- filter(Bootstrapping_df, Taxa == "Baetidae")
+#heter<-filter(Bootstrapping_df, Taxa == "Heterlimnius")
+```
+
+
+```{r}
+#x <- as.vector(sample(baetidae[,"Period_Biomass"], replace = TRUE, size = 1000))
+
+#ci.boot(x, method = "all", sigma.t = NULL, conf = .95)
+
+#boot.baetidae <- bootstrap(baetidae[,"Period_Biomass"],mean,R=10000) 
+#boot <- ci.boot(boot.baetidae, method = "BCa")
+#lb <- boot$res[4,]
+#ub<- boot$res[4,2]
+
+#boot.heter <- bootstrap(heter[,"Period_Biomass"],mean,R=10000) 
+#boot <- ci.boot(boot.heter, method = "all")
+```
+####End Practice
+
+```{r}
+Time_Periods <- as.character(unique(Bootstrapping_df[,6]))#create vector (or object maybe?) with all the time periods and use as.character to make sure it is a character not a factor.  Unique function to make sure there are not repeats
+
+
+Boot_output_df <- NULL
+
+Sites <- as.character(unique(Bootstrapping_df[,1])) #create vector (or object maybe?) with all the site names and use as.character to make sure it is a character not a factor.Unique fuction to make sure there are not repeats
+
+#Taxon <- as.character(unique(Bootstrapping_df[,5])) #create vector (or object maybe?) with all the site names and use as.character to make sure it is a character not a factor.Unique fuction to make sure there are not repeats
+
+#BCa = Bias corrected and accelerated method was chosen since it works best for non-normal distributions
+
+for(j in 1:length(Sites)) {#Loop to filter out sites
+  Site_df <- Bootstrapping_df %>% filter(Site == Sites[j])#filter out sites
+  Taxon <- as.character(unique(Site_df[,5]))
+  
+  for (t in 1:length(Taxon)) {#loop to bootstrap by taxa
+    Taxa_df <- Site_df %>% filter(Taxa == Taxon[t])#filter out Taxa
+    boot.taxat <- bootstrap(Taxa_df[,"Period_Biomass"], mean, R = 10000)#bootstrap 10,000 times
+    ci.boott <- ci.boot(boot.taxat, method = "BCa", conf = .95)#generate 95% confidence intervals
+    df <- data.frame(Site = Sites[j],#create new data frame, could even add in all the other columns from main
+                     Taxa = Taxon[t],
+                     Lower_Bound = ci.boott$res[4,1],#very important, select BCa conf lower bound from output data
+                     Upper_Bound = ci.boott$res[4,2])#very important, select BCa conf upper bound from output data
+    Boot_output_df <-rbind(Boot_output_df,df)
+  }
+  
+}#close both loops
+```
+
+
+```{r}
+#write the output dataframe into an excel sheet
+
+write_xlsx(Boot_output_df, 'Boot_output_df.xlsx')
+
+
+```
+
+```{r}
+
+Production_plot <- ggplot(Graph_df, aes(Site, Annual.Production)) +        # ggplot2 plot with confidence intervals
+  geom_col() +
+  geom_errorbar(aes(ymin = Production_Lower_Bound, ymax = Production_Upper_Bound), width = .4, size = 1) +
+  labs(x = "Sites", y = "Annual Production",title = "Invertebrate Secondary Production (AFDM g/m2/year)") + 
+  theme_classic(base_size=15)
+
+
+ggsave("Production Plot.png", width = 10, height = 5)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
